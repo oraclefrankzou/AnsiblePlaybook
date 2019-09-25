@@ -138,7 +138,7 @@
     lineinfile:
       path: /home/oracle/.bash_profile
       insertafter: '^export ORACLE_BASE'
-      line: export ORACLE_HOME={{ oracle_home }}
+      line: export ORACLE_BASE={{ oracle_home }}
 
   - name: oracle profile LD_LIBRARY_PATH
     lineinfile:
