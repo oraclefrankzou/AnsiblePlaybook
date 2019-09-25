@@ -1,0 +1,377 @@
+---
+- hosts: all
+  vars:
+    u01_size_gb: 1
+    tmp_size_gb: 1
+    oracle_sid:  an
+    oracle_base: /u01/app/oracle
+    oracle_home: /u01/app/oracle/product/19.2.0.4/dbhome_1
+    patch_dir: /u01/install
+    
+    epo_name: ep163
+    timezone: Hongkong
+  tasks:
+ 
+  - name: check redhat linux server 7.5
+    action: shell cat /etc/redhat-release 
+    register: redhatos
+    failed_when: "'Red Hat Enterprise Linux Server release 7.5' not in redhatos.stdout"  
+
+  - name: Disable SELinux
+    selinux:
+       state: disabled
+  - name: stop service tuned
+    systemd:
+      name: tuned
+      state: stopped
+      enabled: no
+
+  - name: stop service postfix
+    systemd:
+      name: postfix
+      state: stopped
+      enabled: no
+
+  - name: change timezone to Hongkong
+    action: shell cp  /usr/share/zoneinfo/{{ timezone }}  /etc/localtime
+
+  - name: Create ntp /usr/sbin/ntpdate 182.16.3.162
+    cron:
+      name: "ntpdate to 182.16.3.162"
+      minute: "*/10"
+      job: "/usr/sbin/ntpdate 182.16.3.162  > /dev/null 2>&1"
+
+  - name: Create ntp /usr/sbin/ntpdate ntpdate time1.google.com
+    cron:
+      name: "ntpdate to ntpdate time1.google.com"
+      minute: "*/3"
+      job: " /usr/sbin/ntpdate time1.google.com  > /dev/null 2>&1; /sbin/hwclock -w"
+
+  - name: Create ntp ntpdate 0.centos.pool.ntp.org
+    cron:
+      name: "ntpdate to ntpdate 0.centos.pool.ntp.org"
+      minute: "*/5"
+      job: "/usr/sbin/ntpdate 0.centos.pool.ntp.org > /dev/null 2>&1; /sbin/hwclock -w"
+
+
+
+  - sysctl:
+      name: vm.swappiness
+      value: 10
+      state: present
+  - sysctl:
+      name: fs.aio-max-nr
+      value:  1048576
+      state: present
+  - sysctl:
+      name: fs.file-max
+      value: 6815744
+      state: present
+  - sysctl:
+      name: kernel.shmall
+      value: 2097152
+      state: present
+  - sysctl:
+      name: kernel.shmmax
+      value: 11536870912
+      state: present
+  - sysctl:
+      name: kernel.shmmni
+      value: 4096
+      state: present
+  - sysctl:
+      name: kernel.sem
+      value: 250 32000 100 128
+      state: present
+  - sysctl:
+      name: net.ipv4.ip_local_port_range
+      value: 9000 65500
+      state: present
+  - sysctl:
+      name: net.core.rmem_default
+      value: 262144
+      state: present
+  - sysctl:
+      name: net.core.rmem_max
+      value: 4194304
+      state: present
+  - sysctl:
+      name: net.core.wmem_default
+      value: 262144
+      state: present
+  - sysctl:
+      name: net.core.wmem_max
+      value: 1048576
+      state: present
+
+
+
+  - name: add group "oinstall"
+    group: 
+      name: oinstall
+      state: present
+
+  - name: add group "dba" 
+    group: 
+      name: dba
+      state: present
+
+  - name: add the user 'oracle'
+    user:
+      name: oracle
+      group: oinstall
+      groups: dba
+
+  - name: oracle profile ORACLE_SID
+    lineinfile:
+      path: /home/oracle/.bash_profile
+      insertafter: '^export PATH'
+      line: export ORACLE_SID={{ oracle_sid }}
+
+  - name: oracle profile ORACLE_BASE
+    lineinfile:
+      path: /home/oracle/.bash_profile
+      insertafter: '^export ORACLE_SID'
+      line: export ORACLE_BASE={{ oracle_base }}
+
+  - name: oracle profile ORACLE_HOME
+    lineinfile:
+      path: /home/oracle/.bash_profile
+      insertafter: '^export ORACLE_BASE'
+      line: export ORACLE_BASE={{ oracle_home }}
+
+  - name: oracle profile LD_LIBRARY_PATH
+    lineinfile:
+      path: /home/oracle/.bash_profile
+      insertafter: '^export ORACLE_HOME'
+      line: export export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ORACLE_HOME}/lib:/lib64:/lib
+
+  - name: oracle profile PATH
+    lineinfile:
+      path: /home/oracle/.bash_profile
+      insertafter: '^export LD_LIBRARY_PATH'
+      line: export PATH=${ORACLE_HOME}/bin:$PATH:/usr/sbin:/sbin:/usr/bin:/bin
+
+
+  - name: copy oracle software to stage area
+    copy: src=files/ dest={{ patch_dir }} owner=oracle group=oinstall
+
+  - name: setting  RemoveIPC=no
+    lineinfile:
+      path: /etc/systemd/logind.conf 
+      insertafter: '^#RemoveIPC=no'
+      line: RemoveIPC=no
+
+  - name: Add or modify nofile soft limit for the user oracle
+    pam_limits:
+      domain: oracle
+      limit_type: soft
+      limit_item: nofile
+      value: 65530
+
+  - name: Add or modify nofile hard limit for the user oracle
+    pam_limits:
+      domain: oracle
+      limit_type: hard
+      limit_item: nofile
+      value: 65530
+
+  - name: Add or modify noproc soft limit for the user oracle
+    pam_limits:
+      domain: oracle
+      limit_type: soft
+      limit_item: nproc
+      value: 16384
+
+  - name: Add or modify noproc hard limit for the user oracle
+    pam_limits:
+      domain: oracle
+      limit_type: hard
+      limit_item: nproc
+      value: 16384
+
+
+  - name: setting  RemoveIPC=no
+    lineinfile:
+      path: /etc/pam.d/login
+      insertafter: EOF
+      line: session required  /lib64/security/pam_limits.so
+
+  - name: modify /etc/default/grub to disable huge transparent page
+    action: shell sed -i  's#quiet#quiet transparent_hugepage=never#g' /etc/default/grub 
+
+
+  - name: compile grub2
+    action: shell grub2-mkconfig  -o /boot/grub2/grub.cfg
+
+
+
+  - name: Creates ORACLE_HOME directory
+    file: path={{ oracle_home }} state=directory
+
+  - name: change /u01 ownship to oracle
+    action: shell chown -R oracle:oinstall /u01
+ 
+  - name: Add yum repository 163
+    yum_repository:
+      name: ep163
+      description: ep163 YUM repo
+      baseurl: http://mirrors.163.com/centos/7/os/$basearch/
+      gpgcheck: no
+
+
+
+  - name: install tigervnc-server
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: tigervnc-server
+      state: present
+
+  - name: install compat-libstdc++-33
+    yum:
+      name: compat-libstdc++-33
+      state: present  
+
+  - name: install compat-libstdc++-33.i686
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: compat-libstdc++-33.i686
+      state: present  
+
+  - name: install gcc
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: gcc
+      state: present  
+  - name: installgcc-c++
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: gcc-c++
+      state: present  
+
+  - name: install glibc.i686
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: glibc.i686
+      state: present  
+  - name: install glibc
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: glibc
+      state: present
+
+  - name: install glibc-devel
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: glibc-devel
+      state: present
+
+  - name: install glibc-devel.i686
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: glibc-devel.i686
+      state: present
+  - name: install ksh
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: ksh
+      state: present
+  - name: install libgcc.i686
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: libgcc.i686
+      state: present
+  - name: install libgcc
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: libgcc
+      state: present
+  - name: install libstdc++
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: libstdc++
+      state: present
+  - name: install libstdc++.i686
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: libstdc++.i686
+      state: present
+  - name: install libstdc++-devel
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: libstdc++-devel
+      state: present
+  - name: install libstdc++-devel.i686
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: libstdc++-devel.i686
+      state: present
+  - name: install telnet
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: telnet
+      state: present
+  - name: install libaio.i686
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: libaio.i686
+      state: present
+  - name: install libaio-devel
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: libaio-devel
+      state: present
+  - name: install libaio-devel.i686
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: libaio-devel.i686
+      state: present
+  - name: install make
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: make
+      state: present
+  - name: install sysstat
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: sysstat
+      state: present
+
+  - name: install elfutils-libelf-devel
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: elfutils-libelf-devel
+      state: present
+
+  - name: install xterm
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: xterm
+      state: present
+
+  - name: install binutils
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: binutils
+      state: present
+  - name: install compat-libcap1
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: compat-libcap1
+      state: present
+
+      
+  - name: install the 'Development tools' package group
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: "@Development tools"
+      state: present
+
+  - name: install the 'Gnome desktop' environment group
+    yum:
+      enablerepo: "{{ epo_name }}"
+      name: "@^gnome-desktop-environment"
+      state: present
+
+  - name: install xorg-x11-twm-1.0.3-5.1.el6.x86_64.rpm
+    action: shell  rpm -Uvh {{ patch_dir }}/xorg-x11-twm-1.0.3-5.1.el6.x86_64.rpm
