@@ -144,7 +144,7 @@
     lineinfile:
       path: /home/oracle/.bash_profile
       insertafter: '^export ORACLE_HOME'
-      line: export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ORACLE_HOME}/lib:/lib64:/lib
+      line: export export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ORACLE_HOME}/lib:/lib64:/lib
 
   - name: oracle profile PATH
     lineinfile:
