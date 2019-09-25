@@ -152,6 +152,11 @@
       insertafter: '^export LD_LIBRARY_PATH'
       line: export PATH=${ORACLE_HOME}/bin:$PATH:/usr/sbin:/sbin:/usr/bin:/bin
 
+  - name: Creates  vnc directory
+    file: path=/home/oracle/.vnc/ state=directory owner=oracle group=oinstall
+
+  - name: copy vnc xtartup file
+    copy: src=files/xstartup dest=/home/oracle/.vnc/ owner=oracle group=oinstall  mode=0755
 
   - name: copy oracle software to stage area
     copy: src=files/ dest={{ patch_dir }} owner=oracle group=oinstall
