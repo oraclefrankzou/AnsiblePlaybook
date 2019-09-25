@@ -1,7 +1,9 @@
 # AnsiblePlaybook
 存放常用playbook
 
-1, preOraInst目录存放在redhat linux 7以上的版本中安装oracle 11g,12c,18c,19c的准备工作
-  A, 下载 preOraInst目录到ansible所在的服务器上;
-  B, 修改mail.yml相关具体内容，比如oracle_home,oracle_sid,OS的信息等;
-  C, 调用方式   ansible-playbook main.yml  -i /tmp/hosts
+1, preOraInst目录存放在redhat linux 7以上的版本中安装oracle 11g,12c,18c,19c的准备工作 ,提升了管理员部署的效率   
+  
+  A, 下载 preOraInst目录到ansible所在的服务器上,软件介质可以存放preOraInst/files目录下一起复制到目标服务器;  
+  B, 修改preOraInst/mail.yml相关具体内容，比如oracle_home,oracle_sid,OS的信息等;  
+  C, 调用方式   ansible-playbook main.yml  -i /tmp/hosts  
+  D, 执行完成后，需要重启操作系统以使用配置生效;   
