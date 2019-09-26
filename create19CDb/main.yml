@@ -1,0 +1,23 @@
+---
+- hosts: all
+  vars:
+    oracle_sid:  an
+    oracle_base: /u01/app/oracle
+    oracle_home: /u01/app/oracle/product/19.2.0.4/dbhome_1
+    sys_system_pwd: abc123
+    oracle_data_dir: /u01/app/oracle/oradata
+  tasks:
+  
+  - name: check instance exists
+    action: shell ps -eaf | grep ora_smon_{{ oracle_sid }} | grep -v grep
+    register: instance
+    failed_when: "'ora_smon_{{ oracle_sid }}' in instance.stdout"
+  
+  - name: create oracle database
+    become: yes
+    become_user: oracle
+    shell: /bin/sh {{ oracle_home }}/bin/dbca -silent -createDatabase -templateName General_Purpose.dbc -gdbname {{oracle_sid}} -sid {{oracle_sid}} -responseFile NO_VALUE -characterSet AL32UTF8  -sysPassword {{ sys_system_pwd }} -systemPassword {{ sys_system_pwd }}  -createAsContainerDatabase false -databaseType MULTIPURPOSE  -storageType FS  -automaticMemoryManagement false -totalMemory 1200   -redoLogFileSize 100   -emConfiguration NONE -datafileDestination {{oracle_data_dir}}
+
+  
+
+   
