@@ -1,0 +1,41 @@
+---
+- hosts: all
+  vars:
+    oracle_base: /u01/app/oracle
+    oracle_home: /u01/app/oracle/product/19.2.0.4/dbhome_1
+    oraclefile_name: LINUX.X64_193000_db_home.zip
+  tasks:
+  
+  - name: copy oracle software media to oracle_home
+    copy: src=files/ dest={{ oracle_home }} owner=oracle group=oinstall
+  
+  - name: unzip oracle software
+    shell: unzip -oq {{ oracle_home }}/{{ oraclefile_name }} -d {{ oracle_home }}
+    become: yes
+    become_user: oracle
+  
+  - name: modify db_19c_install.rsp
+    lineinfile:
+      path: /u01/app/oracle/product/19.2.0.4/dbhome_1/db_19c_install.rsp
+      insertafter: 'oracle.install.option=INSTALL_DB_SWONLY'
+      line: "{{ item }}"
+    with_items:
+       - INVENTORY_LOCATION={{ oracle_base }}
+       - ORACLE_BASE={{ oracle_base }}
+       - ORACLE_HOME={{ oracle_home }}
+
+
+
+
+  - name: oracle soft installation
+    action: shell {{ oracle_home }}/runInstaller -silent -ignorePrereqFailure -noconfig -responseFile {{ oracle_home }}/db_19c_install.rsp
+    become: yes
+    become_user: oracle
+    ignore_errors: True
+  
+  - name: execute orainstroot.sh
+    shell: /bin/sh {{ oracle_base }}/orainstRoot.sh
+  
+  - name: Execute root.sh
+    shell: /bin/sh {{ oracle_home }}/root.sh
+   
