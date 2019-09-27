@@ -18,5 +18,5 @@
   
   A, 下载 create19CDb目录到ansible所在的服务器上,软件介质可以存放postOra19CInst/files目录下一起复制到目标服务器;  
   B, 修改 create19CDb/main.yml相关具体内容，比如oracle_home,oracle_sid,sys_system_pwd的信息等;  
-  C, 调用方式   ansible-playbook main.yml  -i /tmp/hosts  
+  C, 调用方式   ansible-playbook main.yml  -i /tmp/hosts  ;
 
